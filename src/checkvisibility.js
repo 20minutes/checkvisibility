@@ -1,133 +1,163 @@
+(function(window, document, exportName) {
 
-window.checkVisibility = (function(window){
+	var win = window;
+	var doc = document.documentElement;
+	var docBody = document.body;
 
-	function checkVisibility(elem){
+	var scrollY;
+	var scrollX;
 
-		var self = this;
-		var deltas = {};
-		var bounds = {};
+	var winHeight;
+	var winWidth;
 
-		var win = window;
-		var doc = document.documentElement;
-		var docBody = document.body;
+	var docHeight;
 
-		var winHeight;
-		var winWidth;
-		var rect;
-		var elemHeight;
-		var elemWidth;
-		var docHeight;
-		var bounds = {};
-		var deltas = {};
-		var scrollY;
-		var scrollX;
-		var rectTop;
-		var offsetTop;
-		var elemOffsetTop;
-		var viewport;
-		var trackLength;
+	var viewport = {};
 
-		//var docClientTop
+	var trackLength;
 
-		self.elem = elem;
+	/** @constructor
+	 *
+     * @param {element} elem - DOM element.
+     */
+	var CheckVisibility  = function (elem) {
+		this.elem = elem;
 
-		this.updatePosition = function(){
+		this.bounds = {};
+		this.deltas = {};
 
-			elemHeight = self.elem.offsetHeight 
-			elemWidth = self.elem.offsetWidth;
-			elemOffsetTop = self.elem.offsetTop
+		// init
+		this.updatePosition();
+	};
 
-			docHeight = Math.max(docBody.offsetHeight, doc.scrollHeight);
-			winHeight = Math.max(win.innerHeight, doc.clientHeight);
-			winWidth = Math.max(win.innerWidth, doc.clientWidth);	
-		}
+	/** @function
+	 * Measure position of viewport
+	 */
+	CheckVisibility.prototype.updatePosition = function updatePosition() {
+		docHeight = Math.max(docBody.offsetHeight, doc.scrollHeight);
+		winHeight = Math.max(win.innerHeight, doc.clientHeight);
+		winWidth = Math.max(win.innerWidth, doc.clientWidth);
+	};
 
-		function is(elem, y){
+	/** @function
+	 * Measure bounds and delta of element
+	 *
+	 * @param {Number} y - >0 and <1
+	 */
+	CheckVisibility.prototype.measure = function measure(y) {
+		var elemHeight = this.elem.offsetHeight;
+		var elemWidth = this.elem.offsetWidth;
+		var rect = this.elem.getBoundingClientRect(); // getBoundingClientRect CAUSES MAJOR REPAINT == fallback needed but no solution yet
 
-			scrollY = win.pageYOffset; // IE 10 + purpose
-			//scrollX = win.pageXOffset;
+		scrollY = win.pageYOffset; // IE 10 + purpose
+		//scrollX = win.pageXOffset;
 
-			// getBoundingClientRect CAUSES MAJOR REPAINT == fallback needed but no solution yet
+		viewport = {};
 
-			rect = self.elem.getBoundingClientRect();
-			viewport = {
-				top : scrollY
+		viewport.top = scrollY;
+
+		//viewport.right = viewport.left + winWidth;
+		viewport.bottom = viewport.top + winHeight;
+
+		this.bounds = {
+			top :  rect.top + scrollY
+			//left :  rect.left + scrollX
+		};
+
+		//bounds.right = bounds.left + elemWidth;
+		this.bounds.bottom = this.bounds.top + elemHeight;
+
+		if (y !== undefined) {
+			this.deltas = {
+				top : Math.min(1, (this.bounds.bottom - viewport.top) / elemHeight),
+				bottom : Math.min(1, (viewport.bottom -  this.bounds.top) / elemHeight)
 			};
-
-			//viewport.right = viewport.left + winWidth;
-			viewport.bottom = viewport.top + winHeight;
-
-			bounds = {
-				top :  rect.top + scrollY
-				//left :  rect.left + scrollX
-			}
-
-			//bounds.right = bounds.left + elemWidth;
-			bounds.bottom = bounds.top + elemHeight;
-
-			if(y !== undefined){
-				deltas = {
-					top : Math.min( 1, ( bounds.bottom - viewport.top ) / elemHeight),
-					bottom : Math.min(1, ( viewport.bottom -  bounds.top ) / elemHeight)
-				};
-			}
 		}
+	};
 
-		this.percentageScrolled = function(){
+	CheckVisibility.prototype.percentageScrolled = function percentageScrolled() {
+		trackLength = docHeight - winHeight;
 
-			trackLength = docHeight - winHeight;
-			
-			var pctScrolled = Math.floor(win.scrollY / trackLength * 100);
+		return Math.floor(win.scrollY / trackLength * 100);
+	};
 
-			return pctScrolled;
-		}
+	/** @function
+	 * check if element is inView
+	 *
+	 * @param {Number} y - >0 and <1
+	 * @return {Boolean}
+	 */
+	CheckVisibility.prototype.inView = function inView(y) {
+		y = y || 0;
 
-		this.inView = function(y){
-			
-			var y = (y == undefined || y == 0) ? 0 : y;
+		this.measure(y);
 
-			is(self.elem, y);
+		return (this.deltas.top * this.deltas.bottom) >= y; // true if elem is y x 100 % visible
+	};
 
-			return (deltas.top * deltas.bottom) >= y; // true si elem est visible a y x 100 %
-		}
+	/** @function
+	 *
+	 * @return {Number}
+	 */
+	CheckVisibility.prototype.fromBottom = function fromBottom() {
+		this.measure();
 
-		this.fromBottom = function(){
-			is(self.elem);
-			
-			return viewport.bottom - bounds.bottom; // distance du bottom window
-		}
+		return viewport.bottom - this.bounds.bottom; // distance from bottom window
+	};
 
-		this.fromTop = function(){
-			is(self.elem);
+	/** @function
+	 *
+	 * @return {Number}
+	 */
+	CheckVisibility.prototype.fromTop = function fromTop() {
+		this.measure();
 
-			return viewport.top - bounds.top; // distance du top window
-		}
+		return viewport.top - this.bounds.top; // distance from top window
+	};
 
-		this.viewportTop = function(){
-			is(self.elem);
+	/** @function
+	 *
+	 * @return {Number}
+	 */
+	CheckVisibility.prototype.viewportTop = function viewportTop() {
+		this.measure();
 
-			return viewport.top; // Same as scrollY
-		}
+		return viewport.top; // Same as scrollY
+	};
 
-		this.viewportBottom = function(){
-			is(self.elem);
+	/** @function
+	 *
+	 * @return {Number}
+	 */
+	CheckVisibility.prototype.viewportBottom = function viewportBottom() {
+		this.measure();
 
-			return viewport.bottom; // distance from bottom scroll
-		}
+		return viewport.bottom; // distance from bottom scroll
+	};
 
-		this.bottomOfWindow = function(){
+	/** @function
+	 *
+	 * @return {Boolean}
+	 */
+	CheckVisibility.prototype.bottomOfWindow = function bottomOfWindow() {
+		this.measure();
 
-			is(self.elem);
-			return (viewport.top + winHeight) >= (docHeight); // return si on a scroll toute la window
-		}
+		return (viewport.top + winHeight) >= (docHeight); // return true if window scrolled to bottom
+	};
 
-		function _init(){
-			self.updatePosition();
-		}
-
-		_init()
+	// Export our constructor
+	if (typeof define === 'function' && define.amd) {
+		define(function() {
+			return CheckVisibility;
+		});
+	}
+	else if (typeof module !== 'undefined' && module.exports) {
+		module.exports = CheckVisibility;
+	}
+	else {
+		window[exportName] = CheckVisibility;
 	}
 
-	return checkVisibility;
+	return CheckVisibility;
 
-})(window)
+})(window, document, 'CheckVisibility');
