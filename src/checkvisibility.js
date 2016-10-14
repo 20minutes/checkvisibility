@@ -7,11 +7,11 @@
         module.exports = factory();
     } else {
         // Browser globals (root is window)
-        root.returnExports = factory();
+        root.CheckVisibility = factory();
     }
 }(this, function () {
 
-	return (function(window, document, exportName) {
+	return (function(window, document) {
 
 		var doc = document.documentElement;
 		var docBody = document.body;
@@ -159,6 +159,6 @@
 
 		return CheckVisibility;
 
-	})(window, document, 'CheckVisibility');
+	})(window, document);
 
 }));
